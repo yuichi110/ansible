@@ -103,15 +103,25 @@
       when: not result2.stat.exists
       shell: /usr/local/bin/kubectl config view --raw > /root/config
 
+    - name: Copy ca.* and client.* to /root/
+      when: not result2.stat.exists
+      shell: cp /root/.minikube/ca.* /root/; cp /root/.minikube/client.* /root/
+
     - name: Make kube-config.zip
       archive:
         path:
           - /root/config
           - /root/set_secure_context.sh
           - /root/set_insecure_context.sh
-          - /root/.minikube/ca.key
-          - /root/.minikube/ca.crt
-          - /root/.minikube/client.key
-          - /root/.minikube/client.crt
+          - /root/ca.key
+          - /root/ca.crt
+          - /root/client.key
+          - /root/client.crt
         dest: /root/kube-config.zip
         format: zip
+
+    - name: Disable firewalld
+      systemd:
+        name: firewalld
+        state: stopped
+        enabled: false
