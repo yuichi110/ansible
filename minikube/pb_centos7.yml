@@ -14,16 +14,22 @@
         dest: /root/.ssh/id_rsa
         mode: 0600
 
-    - name: Copy ssh private key
+    - name: Copy ssh config
       copy:
-        src: ./id_rsa
-        dest: /root/.ssh/id_rsa
-        mode: 0600
+        src: ./ssh_config
+        dest: /root/.ssh/config
+        mode: 0644
 
     - name: Copy shell script
       copy:
-        src: ./set_context.sh
-        dest: /root/set_context.sh
+        src: ./set_secure_context.sh
+        dest: /root/set_secure_context.sh
+        mode: 0755
+
+    - name: Copy shell script
+      copy:
+        src: ./set_insecure_context.sh
+        dest: /root/set_insecure_context.sh
         mode: 0755
 
     - name: Add authorized key
@@ -101,7 +107,8 @@
       archive:
         path:
           - /root/config
-          - /root/set_context.sh
+          - /root/set_secure_context.sh
+          - /root/set_insecure_context.sh
           - /root/.minikube/ca.key
           - /root/.minikube/ca.crt
           - /root/.minikube/client.key

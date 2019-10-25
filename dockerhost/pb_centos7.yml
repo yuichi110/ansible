@@ -14,6 +14,12 @@
         dest: /root/.ssh/id_rsa
         mode: 0600
 
+    - name: Copy ssh config
+      copy:
+        src: ./ssh_config
+        dest: /root/.ssh/config
+        mode: 0644
+
     - name: Add authorized key
       authorized_key:
         user: root
