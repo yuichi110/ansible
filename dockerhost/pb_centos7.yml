@@ -2,6 +2,27 @@
   remote_user: root
   tasks:
 
+    - name: Disable firewalld
+      systemd:
+        name: firewalld
+        state: stopped
+        enabled: false
+
+    - name: Change sshd config
+      replace:
+        dest: '/etc/ssh/sshd_config'
+        regexp: '#MaxSessions 10'
+        replace: 'MaxSessions 100'
+      register: sshd_config
+
+    - name: Restart sshd when config changed
+      systemd:
+        name: sshd
+        state: restarted
+        daemon_reload: yes
+        enabled: yes
+      when: sshd_config.changed
+
     - name: Copy ssh public key
       copy:
         src: ./id_rsa.pub
@@ -14,12 +35,6 @@
         dest: /root/.ssh/id_rsa
         mode: 0600
 
-    - name: Copy ssh config
-      copy:
-        src: ./ssh_config
-        dest: /root/.ssh/config
-        mode: 0644
-
     - name: Add authorized key
       authorized_key:
         user: root
@@ -28,7 +43,7 @@
 
     - name: Install tools
       yum:
-        name: "yum-utils,device-mapper-persistent-data,lvm2"
+        name: "unzip,yum-utils,device-mapper-persistent-data,lvm2"
         state: latest
 
     - name: Add Docker repo
@@ -48,21 +63,15 @@
         name: "docker-ce,docker-ce-cli,containerd.io"
         state: latest
 
-    - name: Start/Enable docker
-      systemd:
-        name: docker
-        state: started
-        daemon_reload: no
-        enabled: yes
-
     - name: Download Docker Compose
       get_url: 
         url: https://github.com/docker/compose/releases/download/1.24.1/docker-compose-Linux-x86_64
         dest: /usr/local/bin/docker-compose
         mode: 0511
 
-    - name: Disable firewalld
+    - name: Start/Enable docker
       systemd:
-        name: firewalld
-        state: stopped
-        enabled: false
+        name: docker
+        state: started
+        daemon_reload: no
+        enabled: yes
