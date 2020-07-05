@@ -1,0 +1,103 @@
+- hosts: all
+  remote_user: ubuntu
+  become: true
+  become_user: root
+  become_method: sudo
+  tasks:
+
+    #########
+    ## SSH ##
+    #########
+
+    - name: Copy ssh public key to user ubuntu
+      copy:
+        src: ./id_rsa.pub
+        dest: /home/ubuntu/id_rsa.pub
+        mode: 0644
+
+    - name: Copy ssh private key to user ubuntu
+      copy:
+        src: ./id_rsa
+        dest: /home/ubuntu/id_rsa
+        mode: 0600
+
+    - name: Add authorized key to user ubuntu
+      authorized_key:
+        user: ubuntu
+        state: present
+        key: "{{ lookup('file', './id_rsa.pub') }}"
+
+    - name: Copy ssh public key to user root
+      copy:
+        src: ./id_rsa.pub
+        dest: /root/.ssh/id_rsa.pub
+        mode: 0644
+
+    - name: Copy ssh private key to user root
+      copy:
+        src: ./id_rsa
+        dest: /root/.ssh/id_rsa
+        mode: 0600
+
+    - name: Add authorized key to user root
+      authorized_key:
+        user: root
+        state: present
+        key: "{{ lookup('file', './id_rsa.pub') }}"
+
+    - name: Change sshd config
+      replace:
+        dest: '/etc/ssh/sshd_config'
+        regexp: '#MaxSessions 10'
+        replace: 'MaxSessions 1000'
+      register: sshd_config
+
+    - name: Restart sshd when config changed
+      systemd:
+        name: sshd
+        state: restarted
+        daemon_reload: yes
+        enabled: yes
+      when: sshd_config.changed
+
+
+    #################
+    ## apt install ##
+    #################
+
+    - name: Apt install tools
+      apt:
+        update_cache: yes
+        name:
+        - aptitude
+        - ufw
+        - git
+        - curl
+        - python3
+        - python3-pip
+
+
+    ##############
+    ## Firewall ##
+    ##############
+
+    - name: Allow all access to tcp port 22,80,8000
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+
+    - name: Deny everything and enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+        logging: 'on'
+
+    ###############
+    ## git clone ##
+    ###############
+
+    - name: git clone
+      git: 
+        repo: "https://github.com/kubernetes-sigs/kubespray.git"
+        dest: "/root/kubespray"
