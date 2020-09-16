@@ -1,0 +1,186 @@
+- hosts: all
+  remote_user: ubuntu
+  become: true
+  become_user: root
+  become_method: sudo
+  tasks:
+
+    #########
+    ## SSH ##
+    #########
+
+    # user ubuntu
+
+    - name: Copy ssh public key to user ubuntu
+      copy:
+        src: ./id_rsa.pub
+        dest: /home/ubuntu/id_rsa.pub
+        mode: 0644
+
+    - name: Copy ssh private key to user ubuntu
+      copy:
+        src: ./id_rsa
+        dest: /home/ubuntu/id_rsa
+        mode: 0600
+
+    - name: Add authorized key to user ubuntu
+      authorized_key:
+        user: ubuntu
+        state: present
+        key: "{{ lookup('file', './id_rsa.pub') }}"
+
+    # user root
+
+    - name: Copy ssh public key to user root
+      copy:
+        src: ./id_rsa.pub
+        dest: /root/.ssh/id_rsa.pub
+        mode: 0644
+
+    - name: Copy ssh private key to user root
+      copy:
+        src: ./id_rsa
+        dest: /root/.ssh/id_rsa
+        mode: 0600
+
+    - name: Add authorized key to user root
+      authorized_key:
+        user: root
+        state: present
+        key: "{{ lookup('file', './id_rsa.pub') }}"
+
+    # sshd config
+
+    - name: Change sshd config
+      replace:
+        dest: '/etc/ssh/sshd_config'
+        regexp: '#MaxSessions 10'
+        replace: 'MaxSessions 1000'
+      register: sshd_config
+
+    - name: Restart sshd when config changed
+      systemd:
+        name: sshd
+        state: restarted
+        daemon_reload: yes
+        enabled: yes
+      when: sshd_config.changed
+
+
+    #################
+    ## apt install ##
+    #################
+
+    - name: Apt install tools
+      apt:
+        update_cache: yes
+        name:
+        - aptitude
+        - apt-transport-https
+        - ca-certificates
+        - ufw
+        #- git
+        - curl
+        - python3
+        - python3-pip
+        - docker.io
+        - software-properties-common
+        - iptables
+        - arptables
+        - ebtables
+
+
+    ############
+    ## kernel ##
+    ############
+
+    - name: Remove swapfile from /etc/fstab
+      mount:
+        name: swap
+        fstype: swap
+        state: absent
+        
+    - name: Disable swap
+      command: swapoff -a
+      when: ansible_swaptotal_mb > 0
+
+
+    ##############
+    ## Firewall ##
+    ##############
+
+    - name: iptables
+      alternatives:
+        name: iptables
+        path: /usr/sbin/iptables-legacy
+
+    - name: ip6tables
+      alternatives:
+        name: ip6tables
+        path: /usr/sbin/ip6tables-legacy
+
+    - name: arptables
+      alternatives:
+        name: arptables
+        path: /usr/sbin/arptables-legacy
+
+    - name: ebtables
+      alternatives:
+        name: ebtables
+        path: /usr/sbin/ebtables-legacy
+
+
+    ############
+    ## Docker ##
+    ############
+
+    - name: Start/Enable docker
+      systemd:
+        name: docker
+        state: started
+        daemon_reload: no
+        enabled: yes
+
+
+    ################
+    ## Kubernetes ##
+    ################
+
+    - name: Add an Apt signing key, uses whichever key is at the URL
+      apt_key:
+        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+        state: present
+
+    - name: Add K8S APT repository
+      apt_repository:
+        repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
+
+    - name: Apt install tools
+      apt:
+        update_cache: yes
+        name:
+        - kubelet
+        - kubeadm
+        - kubectl
+
+    - name: Prevent kubelet from being upgraded.
+      dpkg_selections:
+        name: kubelet
+        selection: hold
+
+    - name: Prevent kubeadm from being upgraded.
+      dpkg_selections:
+        name: kubeadm
+        selection: hold
+
+    - name: Prevent kubectl from being upgraded.
+      dpkg_selections:
+        name: kubectl
+        selection: hold
+
+    - name: Start/Enable kubelet
+      systemd:
+        name: kubelet
+        state: started
+        daemon_reload: no
+        enabled: yes

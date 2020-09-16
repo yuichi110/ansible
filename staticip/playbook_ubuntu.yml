@@ -1,0 +1,20 @@
+- hosts: all
+  remote_user: ubuntu
+  become: true
+  become_user: root
+  become_method: sudo
+  tasks:
+
+    - name: Static IP
+      nmcli:
+        state: present
+        conn_name: "{{ con }}"
+        ip4: "{{ ip4 }}"
+        gw4: "{{ gw4 }}"
+
+    - name: name setting
+      net_system:
+        name_servers:
+          - "{{ ns }}"
+        hostname: "{{ host }}"
+        domain_name: "{{ domain }}"
